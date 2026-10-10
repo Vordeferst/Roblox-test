@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
+<title>3D Платформа — Роблокс Нуб</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #87ceeb;
+    font-family: system-ui, -apple-system, sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  canvas { display: block; }
+
+  #fps {
+    position: fixed; right: 12px; top: 12px; color: #fff; font-size: 13px;
+    font-family: ui-monospace, monospace; font-weight: 700;
+    background: rgba(0,0,0,.42); padding: 4px 10px; border-radius: 8px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8); z-index: 6; pointer-events: none;
+    letter-spacing: .5px;
+  }
+
+  #stats {
+    position: fixed; right: 12px; top: 44px;
+    width: 210px; z-index: 6; pointer-events: none;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .stat {
+    position: relative;
+    height: 22px;
+    background: rgba(0,0,0,.5);
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,.18);
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  }
+  .stat .fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 100%;
+    transition: width .12s linear;
+    border-radius: 6px;
+  }
+  .stat.hp .fill {
+    background: linear-gradient(90deg, #8b1010 0%, #d92626 45%, #ff5252 100%);
+    box-shadow: inset 0 0 10px rgba(255,140,140,.55), 0 0 8px rgba(255,80,80,.35);
+  }
+  .stat.st .fill {
+    background: linear-gradient(90deg, #9a7a0a 0%, #f5cd30 50%, #ffe066 100%);
+    box-shadow: inset 0 0 10px rgba(255,230,120,.55), 0 0 8px rgba(255,210,80,.35);
+  }
+  .stat .txt {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 10px;
+    color: #fff; font-size: 11px; font-weight: 800;
+    font-family: ui-monospace, monospace;
+    text-shadow: 0 1px 3px rgba(0,0,0,.95);
+    letter-spacing: .8px;
+    z-index: 1;
+  }
+  .stat .txt .value { font-variant-numeric: tabular-nums; }
+
+  #settings {
+    position: fixed; left: 12px; top: 12px;
+    background: rgba(0,0,0,.42); color: #fff;
+    padding: 9px 13px 11px; border-radius: 11px;
+    font-size: 12px; z-index: 6;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    min-width: 170px;
+    border: 1px solid rgba(255,255,255,.1);
+  }
+  #settings .row {
+    display: flex; justify-content: space-between;
+    margin-bottom: 6px; opacity: .95; font-weight: 600;
+  }
+  #settings .row span:last-child { color: #7dd87d; font-family: ui-monospace, monospace; }
+  #settings input[type=range] {
+    width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,.25); border-radius: 2px; outline: none;
+    cursor: pointer;
+  }
+  #settings input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+  #settings input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%; border: none;
+    background: #fff; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+
+  #joystick {
+    position: fixed; bottom: 26px; left: 26px;
+    width: 150px; height: 150px; border-radius: 50%;
+    background: radial-gradient(circle at center,
+      rgba(255,255,255,.16) 0%,
+      rgba(255,255,255,.10) 60%,
+      rgba(255,255,255,.06) 100%);
+    border: 2px solid rgba(255,255,255,.4);
+    box-shadow: inset 0 0 24px rgba(0,0,0,.15), 0 4px 14px rgba(0,0,0,.2);
+    touch-action: none; z-index: 7;
+  }
+  #joystick::before {
+    content: ''; position: absolute; inset: 22px; border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,.22); pointer-events: none;
+  }
+  #knob {
+    position: absolute; left: 50%; top: 50%;
+    width: 66px; height: 66px; margin: -33px 0 0 -33px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(255,255,255,.95),
+      rgba(210,220,235,.85) 60%,
+      rgba(160,180,200,.9) 100%);
+    box-shadow: 0 4px 12px rgba(0,0,0,.35), inset 0 -2px 6px rgba(0,0,0,.15);
+    pointer-events: none;
+  }
+
+  #sprintBtn {
+    position: fixed; bottom: 55px; left: 195px;
+    width: 90px; height: 90px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(255,210,80,.75),
+      rgba(220,160,40,.8) 70%,
+      rgba(160,110,20,.9) 100%);
+    border: 2px solid rgba(255,255,255,.65);
+    color: #fff; font-size: 12px; font-weight: 800;
+    letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    touch-action: none; z-index: 7;
+    box-shadow: 0 5px 16px rgba(0,0,0,.3),
+                inset 0 -3px 8px rgba(0,0,0,.15),
+                inset 0 3px 6px rgba(255,255,255,.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,.55);
+    transition: transform .08s ease, filter .08s ease;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.15;
+  }
+  #sprintBtn .ico { font-size: 22px; line-height: 1; margin-bottom: 2px; }
+  #sprintBtn.active { transform: scale(.92); filter: brightness(1.2); }
+
+  #jumpBtn {
+    position: fixed; bottom: 40px; right: 32px;
+    width: 118px; height: 118px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(120,220,140,.75),
+      rgba(60,160,90,.75) 70%,
+      rgba(40,120,70,.85) 100%);
+    border: 2px solid rgba(255,255,255,.7);
+    color: #fff; font-size: 17px; font-weight: 800;
+    letter-spacing: 1.2px;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; z-index: 7;
+    box-shadow: 0 6px 18px rgba(0,0,0,.3),
+                inset 0 -4px 8px rgba(0,0,0,.15),
+                inset 0 3px 6px rgba(255,255,255,.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,.5);
+    transition: transform .08s ease, filter .08s ease;
+    cursor: pointer;
+  }
+  #jumpBtn.active { transform: scale(.93); filter: brightness(1.25); }
+
+  /* ===== Ability Buttons ===== */
+  .abilityBtn {
+    position: fixed;
+    width: 82px; height: 82px; border-radius: 50%;
+    color: #fff; font-size: 10px; font-weight: 800;
+    letter-spacing: .8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    touch-action: none; z-index: 7;
+    box-shadow: 0 6px 18px rgba(0,0,0,.3),
+                inset 0 -4px 8px rgba(0,0,0,.2),
+                inset 0 3px 6px rgba(255,255,255,.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,.55);
+    transition: transform .08s ease, filter .08s ease;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.1;
+    overflow: hidden;
+  }
+  .abilityBtn .ico { font-size: 20px; line-height: 1; margin-bottom: 1px; }
+  .abilityBtn .sub { font-size: 9px; opacity: .85; letter-spacing: 1.2px; }
+  .abilityBtn .key {
+    position: absolute; top: 6px; right: 8px;
+    font-size: 9px; opacity: .75;
+    font-family: ui-monospace, monospace;
+    letter-spacing: 0;
+  }
+  .abilityBtn .cd {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.65);
+    border-radius: 50%;
+    font-size: 19px; font-weight: 900;
+    font-family: ui-monospace, monospace;
+    letter-spacing: -.5px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+    color: #fff;
+  }
+  .abilityBtn.cool .cd { opacity: 1; }
+
+  #stoneBtn {
+    bottom: 172px; right: 40px;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(180,180,190,.78),
+      rgba(110,110,120,.85) 70%,
+      rgba(70,70,80,.92) 100%);
+    border: 2px solid rgba(255,255,255,.55);
+  }
+  #stoneBtn.active {
+    filter: brightness(1.18);
+    background: radial-gradient(circle at 35% 30%,
+      rgba(230,230,240,.85),
+      rgba(150,150,160,.85) 70%,
+      rgba(100,100,110,.95) 100%);
+  }
+
+  #speedBtn {
+    bottom: 172px; right: 132px;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(120,220,255,.78),
+      rgba(60,160,220,.85) 70%,
+      rgba(30,90,160,.92) 100%);
+    border: 2px solid rgba(255,255,255,.55);
+  }
+  #speedBtn.active {
+    filter: brightness(1.18);
+    background: radial-gradient(circle at 35% 30%,
+      rgba(180,240,255,.9),
+      rgba(100,200,255,.9) 70%,
+      rgba(50,140,220,.95) 100%);
+  }
+
+  /* Indicators */
+  .abilityInd {
+    position: fixed; left: 50%; top: 80px;
+    transform: translateX(-50%) translateY(-12px);
+    color: #fff; font-size: 14px; font-weight: 800;
+    background: rgba(50,55,65,.72);
+    padding: 8px 20px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.25);
+    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    letter-spacing: 1.2px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s ease, transform .3s ease;
+    z-index: 6;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    display: flex; align-items: center; gap: 10px;
+    white-space: nowrap;
+  }
+  .abilityInd.on {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .abilityInd .timer {
+    font-family: ui-monospace, monospace;
+    font-size: 15px;
+    min-width: 42px; text-align: right;
+  }
+  #stoneIndicator .timer { color: #ffe58a; }
+  #stoneIndicator { box-shadow: 0 6px 20px rgba(0,0,0,.35), 0 0 22px rgba(180,200,255,.25); }
+
+  #speedIndicator {
+    top: 122px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.35), 0 0 22px rgba(100,220,255,.35);
+    border-color: rgba(150,230,255,.35);
+  }
+  #speedIndicator .timer { color: #a6eeff; }
+</style>
+</head>
+<body>
+
+<div id="fps">FPS: —</div>
+
+<div id="stats">
+  <div class="stat hp">
+    <div class="fill" id="hpFill"></div>
+    <div class="txt"><span class="label">HP</span><span class="value" id="hpVal">100 / 100</span></div>
+  </div>
+  <div class="stat st">
+    <div class="fill" id="stFill"></div>
+    <div class="txt"><span class="label">STAMINA</span><span class="value" id="stVal">100</span></div>
+  </div>
+</div>
+
+<div id="settings">
+  <div class="row"><span>Чувствительность</span><span id="sensVal">1.0×</span></div>
+  <input type="range" id="sensSlider" min="0.3" max="3" step="0.1" value="1">
+</div>
+
+<div id="stoneIndicator" class="abilityInd">🪨 КАМЕННАЯ КОЖА <span class="timer" id="stoneTimer">7.0</span></div>
+<div id="speedIndicator" class="abilityInd">⚡ УСКОРЕНИЕ x2 <span class="timer" id="speedTimer">5.0</span></div>
+
+<div id="joystick"><div id="knob"></div></div>
+<div id="sprintBtn"><span class="ico">⚡</span>SPRINT</div>
+<div id="jumpBtn">JUMP</div>
+
+<div id="speedBtn" class="abilityBtn">
+  <span class="ico">⚡</span>
+  <span class="sub">SPEED</span>
+  <span class="key">E</span>
+  <span class="cd" id="speedCd">28</span>
+</div>
+
+<div id="stoneBtn" class="abilityBtn">
+  <span class="ico">🪨</span>
+  <span class="sub">STONE</span>
+  <span class="key">Q</span>
+  <span class="cd" id="stoneCd">35</span>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   СЦЕНА / КАМЕРА / РЕНДЕРЕР
+   ============================================================ */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 60, 180);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 500);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ============================================================
+   СВЕТ
+   ============================================================ */
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x556b2f, 1.15));
+
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.9);
+sun.position.set(35, 60, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 180;
+const SH = 50;
+sun.shadow.camera.left   = -SH;
+sun.shadow.camera.right  =  SH;
+sun.shadow.camera.top    =  SH;
+sun.shadow.camera.bottom = -SH;
+sun.shadow.bias = -0.0006;
+scene.add(sun, sun.target);
+
+/* ============================================================
+   ПЛАТФОРМА 40×40
+   ============================================================ */
+const PLATFORM_SIZE = 40;
+const PLATFORM_THICKNESS = 1;
+const HALF = PLATFORM_SIZE / 2;
+
+function makeChecker() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const ctx = cv.getContext('2d');
+  const cells = 10, s = 256 / cells;
+  for (let y = 0; y < cells; y++) {
+    for (let x = 0; x < cells; x++) {
+      ctx.fillStyle = ((x + y) % 2 === 0) ? '#6fbf5a' : '#57a344';
+      ctx.fillRect(x * s, y * s, s, s);
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(PLATFORM_SIZE / 4, PLATFORM_SIZE / 4);
+  tex.anisotropy = 8;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const platform = new THREE.Mesh(
+  new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_THICKNESS, PLATFORM_SIZE),
+  new THREE.MeshStandardMaterial({ map: makeChecker(), roughness: 1 })
+);
+platform.position.y = -PLATFORM_THICKNESS / 2;
+platform.receiveShadow = true;
+scene.add(platform);
+
+const rim = new THREE.Mesh(
+  new THREE.BoxGeometry(PLATFORM_SIZE + 0.4, 0.6, PLATFORM_SIZE + 0.4),
+  new THREE.MeshStandardMaterial({ color: 0x3d5c30, roughness: 1 })
+);
+rim.position.y = -PLATFORM_THICKNESS - 0.3;
+rim.receiveShadow = true;
+scene.add(rim);
+
+const GROUND_Y = 0;
+
+/* ============================================================
+   БУТЫЛОЧКА
+   ============================================================ */
+function createBottle() {
+  const g = new THREE.Group();
+
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x4aa56a, roughness: 0.2, metalness: 0.15,
+    transparent: true, opacity: 0.82,
+  });
+  const corkMat = new THREE.MeshStandardMaterial({
+    color: 0x8a6030, roughness: 0.95,
+  });
+  const liquidMat = new THREE.MeshStandardMaterial({
+    color: 0x7affb5, emissive: 0x2affa0, emissiveIntensity: 0.5, roughness: 0.35,
+  });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.22, 12), glassMat);
+  body.position.y = 0.11;
+  body.castShadow = true;
+  g.add(body);
+
+  const bottom = new THREE.Mesh(
+    new THREE.SphereGeometry(0.085, 12, 6, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
+    glassMat
+  );
+  bottom.position.y = 0.0;
+  g.add(bottom);
+
+  const liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, 0.15, 12), liquidMat);
+  liquid.position.y = 0.09;
+  g.add(liquid);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.062, 0.09, 10), glassMat);
+  neck.position.y = 0.265;
+  neck.castShadow = true;
+  g.add(neck);
+
+  const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.05, 8), corkMat);
+  cork.position.y = 0.325;
+  cork.castShadow = true;
+  g.add(cork);
+
+  g.userData.cork = cork;
+  g.userData.corkBaseY = 0.325;
+
+  return g;
+}
+
+/* ============================================================
+   ПЕРСОНАЖ — КВАДРАТНЫЙ ROBLOX НУБ
+   ============================================================ */
+const LEG_H = 0.68, LEG_W = 0.34, LEG_D = 0.34;
+const TORSO_H = 0.70, TORSO_W = 0.70, TORSO_D = 0.34;
+const ARM_H = 0.68, ARM_W = 0.32, ARM_D = 0.32;
+const HEAD_W = 0.58, HEAD_H = 0.58, HEAD_D = 0.58;
+const ARM_PIVOT_Y = LEG_H + TORSO_H;
+const HEAD_Y      = LEG_H + TORSO_H + HEAD_H / 2;
+
+function createFaceTexture() {
+  const size = 512;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  const cx = size / 2, cy = size / 2;
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.ellipse(cx - 68, cy - 22, 24, 44, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 68, cy - 22, 24, 44, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 24;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy + 48, 96, 0.16 * Math.PI, 0.84 * Math.PI);
+  ctx.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 8;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const FACE_TEX = createFaceTexture();
+
+function makeLimb(w, h, d, mat, px, py) {
+  const pivot = new THREE.Group();
+  pivot.position.set(px, py, 0);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.position.y = -h / 2;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  pivot.add(mesh);
+  return pivot;
+}
+
+function createNoob() {
+  const g = new THREE.Group();
+  g.rotation.order = 'YXZ';
+
+  const MAT_YELLOW = new THREE.MeshStandardMaterial({ color: 0xF5CD30, roughness: 0.75 });
+  const MAT_BLUE   = new THREE.MeshStandardMaterial({ color: 0x0F62C6, roughness: 0.75 });
+  const MAT_GREEN  = new THREE.MeshStandardMaterial({ color: 0x4B974B, roughness: 0.75 });
+
+  const legL = makeLimb(LEG_W, LEG_H, LEG_D, MAT_GREEN, -LEG_W / 2, LEG_H);
+  const legR = makeLimb(LEG_W, LEG_H, LEG_D, MAT_GREEN,  LEG_W / 2, LEG_H);
+  g.add(legL, legR);
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(TORSO_W, TORSO_H, TORSO_D), MAT_BLUE);
+  torso.position.y = LEG_H + TORSO_H / 2;
+  torso.castShadow = true; torso.receiveShadow = true;
+  g.add(torso);
+
+  const armX = TORSO_W / 2 + ARM_W / 2;
+  const armL = makeLimb(ARM_W, ARM_H, ARM_D, MAT_YELLOW, -armX, ARM_PIVOT_Y);
+  const armR = makeLimb(ARM_W, ARM_H, ARM_D, MAT_YELLOW,  armX, ARM_PIVOT_Y);
+  g.add(armL, armR);
+
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, HEAD_Y, 0);
+  const headMesh = new THREE.Mesh(new THREE.BoxGeometry(HEAD_W, HEAD_H, HEAD_D), MAT_YELLOW);
+  headMesh.castShadow = true; headMesh.receiveShadow = true;
+  headPivot.add(headMesh);
+
+  const faceMat = new THREE.MeshBasicMaterial({
+    map: FACE_TEX, transparent: true, alphaTest: 0.5
+  });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(HEAD_W * 0.86, HEAD_H * 0.86), faceMat);
+  face.position.set(0, 0, HEAD_D / 2 + 0.003);
+  headPivot.add(face);
+
+  g.add(headPivot);
+
+  return { group: g, legL, legR, armL, armR, headPivot, mats: { Y: MAT_YELLOW, B: MAT_BLUE, G: MAT_GREEN } };
+}
+
+const playerModel = createNoob();
+scene.add(playerModel.group);
+
+/* Бутылочка в правой руке */
+const bottle = createBottle();
+bottle.position.set(0, -ARM_H, 0.07);
+bottle.visible = false;
+playerModel.armR.add(bottle);
+const cork = bottle.userData.cork;
+const CORK_BASE_Y = bottle.userData.corkBaseY;
+
+/* Цвета каменной кожи */
+const STONE = { Y: new THREE.Color(0x9a9a9a), B: new THREE.Color(0x7a7a7a), G: new THREE.Color(0x6a6a6a) };
+const ORIG  = { Y: new THREE.Color(0xF5CD30), B: new THREE.Color(0x0F62C6), G: new THREE.Color(0x4B974B) };
+
+function setStoneSkin(on) {
+  playerModel.mats.Y.color.copy(on ? STONE.Y : ORIG.Y);
+  playerModel.mats.B.color.copy(on ? STONE.B : ORIG.B);
+  playerModel.mats.G.color.copy(on ? STONE.G : ORIG.G);
+}
+
+/* Боты */
+function spawnBot(x, z, rotY) {
+  const b = createNoob();
+  b.group.position.set(x, 0, z);
+  b.group.rotation.y = rotY;
+  scene.add(b.group);
+  return b;
+}
+spawnBot(-8, -6, 0.6);
+spawnBot(10, 7, -1.2);
+spawnBot(-12, 9, 2.5);
+
+/* ============================================================
+   ИГРОК
+   ============================================================ */
+const player = {
+  pos: new THREE.Vector3(0, 0, 0),
+  vel: new THREE.Vector3(),
+  onGround: true,
+  facing: 0,
+};
+
+const prevPos = new THREE.Vector3().copy(player.pos);
+let prevFacing = 0;
+
+const GRAVITY    = 24;
+const JUMP_SPEED = 9;
+const WALK_SPEED = 5.5;
+const RUN_SPEED  = 9;
+const RESPAWN_Y  = -20;
+
+const STONE_SLOWDOWN = 0.35;
+
+/* HP / Stamina */
+const HP_MAX = 100;
+let hp = HP_MAX;
+
+const STAMINA_MAX = 100;
+const STAMINA_DRAIN = 32;
+const STAMINA_REGEN = 24;
+let stamina = STAMINA_MAX;
+
+/* ============================================================
+   СПОСОБНОСТИ
+   ============================================================ */
+/* --- Каменная кожа (Q) --- */
+const STONE_DURATION = 7;
+const STONE_COOLDOWN = 35;
+let stoneActiveTime = 0;
+let stoneCooldownTime = 0;
+let stoneMode = false;
+
+/* --- Ускорение (E) --- */
+const SPEED_DURATION   = 5;
+const SPEED_COOLDOWN   = 28;
+const SPEED_MULTIPLIER = 2;
+let speedActiveTime = 0;
+let speedCooldownTime = 0;
+let speedMode = false;
+
+/* --- Питьё --- */
+const DRINK_DURATION = 2.2;
+let drinkTimer = 0;
+let drinkType = null;         // 'stone' | 'speed' | null
+let drinkEffectDone = false;
+
+/* Анимация — сглаженные переменные */
+let walkPhase = 0;
+let airPose = 0;
+let currentBob = 0;
+let currentSway = 0;
+
+/* ============================================================
+   UI
+   ============================================================ */
+const hpFillEl = document.getElementById('hpFill');
+const hpValEl  = document.getElementById('hpVal');
+const stFillEl = document.getElementById('stFill');
+const stValEl  = document.getElementById('stVal');
+
+const stoneIndicatorEl = document.getElementById('stoneIndicator');
+const stoneTimerEl = document.getElementById('stoneTimer');
+const stoneBtnEl = document.getElementById('stoneBtn');
+const stoneCdEl = document.getElementById('stoneCd');
+
+const speedIndicatorEl = document.getElementById('speedIndicator');
+const speedTimerEl = document.getElementById('speedTimer');
+const speedBtnEl = document.getElementById('speedBtn');
+const speedCdEl = document.getElementById('speedCd');
+
+function updateBars() {
+  hpFillEl.style.width = ((hp / HP_MAX) * 100) + '%';
+  hpValEl.textContent = Math.round(hp) + ' / ' + HP_MAX;
+  stFillEl.style.width = ((stamina / STAMINA_MAX) * 100) + '%';
+  stValEl.textContent = Math.round(stamina);
+}
+
+function resetBottle() {
+  cork.position.y = CORK_BASE_Y;
+  cork.position.x = 0;
+  cork.material.opacity = 1;
+  bottle.rotation.x = 0;
+}
+
+function activateStoneSkinNow() {
+  stoneActiveTime = STONE_DURATION;
+  stoneMode = true;
+  setStoneSkin(true);
+  stoneIndicatorEl.classList.add('on');
+  stoneBtnEl.classList.add('active');
+}
+
+function activateSpeedBoostNow() {
+  speedActiveTime = SPEED_DURATION;
+  speedMode = true;
+  speedIndicatorEl.classList.add('on');
+  speedBtnEl.classList.add('active');
+}
+
+function requestStoneSkin() {
+  if (stoneActiveTime > 0 || stoneCooldownTime > 0 || drinkTimer > 0) return;
+  drinkTimer = DRINK_DURATION;
+  drinkType = 'stone';
+  drinkEffectDone = false;
+  resetBottle();
+}
+
+function requestSpeedBoost() {
+  if (speedActiveTime > 0 || speedCooldownTime > 0 || drinkTimer > 0) return;
+  drinkTimer = DRINK_DURATION;
+  drinkType = 'speed';
+  drinkEffectDone = false;
+  resetBottle();
+}
+
+/* ============================================================
+   КЛАВИАТУРА
+   ============================================================ */
+const keys = Object.create(null);
+addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  if (e.code === 'KeyQ' && !e.repeat) requestStoneSkin();
+  if (e.code === 'KeyE' && !e.repeat) requestSpeedBoost();
+});
+addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+/* ============================================================
+   КАМЕРА
+   ============================================================ */
+let camYaw   = 0;
+let camPitch = 0.85;
+let camDist  = 10;
+
+const PITCH_MIN = -0.10;
+const PITCH_MAX =  1.40;
+const DIST_MIN  = 5;
+const DIST_MAX  = 22;
+
+let cameraSensitivity = 1.0;
+
+const sensSlider = document.getElementById('sensSlider');
+const sensVal    = document.getElementById('sensVal');
+sensSlider.addEventListener('input', () => {
+  cameraSensitivity = parseFloat(sensSlider.value);
+  sensVal.textContent = cameraSensitivity.toFixed(1) + '×';
+});
+
+const clampPitch = (v) => Math.max(PITCH_MIN, Math.min(PITCH_MAX, v));
+
+let camPointerId = null;
+let camLastX = 0, camLastY = 0;
+
+function startCamDrag(e) {
+  if (e.pointerType === 'mouse' && e.button !== 2) return;
+  if (camPointerId !== null) return;
+  camPointerId = e.pointerId;
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) {}
+  camLastX = e.clientX; camLastY = e.clientY;
+  e.preventDefault();
+}
+function moveCamDrag(e) {
+  if (e.pointerId !== camPointerId) return;
+  const dx = e.clientX - camLastX;
+  const dy = e.clientY - camLastY;
+  camLastX = e.clientX; camLastY = e.clientY;
+  camYaw   -= dx * 0.0032 * cameraSensitivity;
+  camPitch += dy * 0.0032 * cameraSensitivity;
+  camPitch = clampPitch(camPitch);
+  e.preventDefault();
+}
+function endCamDrag(e) {
+  if (e.pointerId !== camPointerId) return;
+  camPointerId = null;
+}
+renderer.domElement.addEventListener('pointerdown', startCamDrag);
+renderer.domElement.addEventListener('pointermove', moveCamDrag);
+renderer.domElement.addEventListener('pointerup', endCamDrag);
+renderer.domElement.addEventListener('pointercancel', endCamDrag);
+
+addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('wheel', (e) => {
+  camDist += e.deltaY * 0.01;
+  camDist = Math.max(DIST_MIN, Math.min(DIST_MAX, camDist));
+}, { passive: true });
+
+/* ============================================================
+   ДЖОЙСТИК
+   ============================================================ */
+const joyEl  = document.getElementById('joystick');
+const knobEl = document.getElementById('knob');
+const joyValue = { x: 0, y: 0 };
+let joyPointerId = null;
+let joyCenterX = 0, joyCenterY = 0;
+const JOY_RADIUS = 62;
+
+function updateJoy(cx, cy) {
+  let dx = cx - joyCenterX, dy = cy - joyCenterY;
+  const d = Math.hypot(dx, dy);
+  if (d > JOY_RADIUS) { dx = dx / d * JOY_RADIUS; dy = dy / d * JOY_RADIUS; }
+  knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
+  joyValue.x = dx / JOY_RADIUS;
+  joyValue.y = dy / JOY_RADIUS;
+}
+joyEl.addEventListener('pointerdown', (e) => {
+  if (joyPointerId !== null) return;
+  joyPointerId = e.pointerId;
+  try { joyEl.setPointerCapture(e.pointerId); } catch (_) {}
+  const r = joyEl.getBoundingClientRect();
+  joyCenterX = r.left + r.width / 2;
+  joyCenterY = r.top + r.height / 2;
+  updateJoy(e.clientX, e.clientY);
+  e.preventDefault(); e.stopPropagation();
+});
+joyEl.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== joyPointerId) return;
+  updateJoy(e.clientX, e.clientY);
+  e.preventDefault(); e.stopPropagation();
+});
+function joyRelease(e) {
+  if (e.pointerId !== joyPointerId) return;
+  joyPointerId = null; joyValue.x = 0; joyValue.y = 0;
+  knobEl.style.transform = 'translate(0,0)';
+  e.preventDefault(); e.stopPropagation();
+}
+joyEl.addEventListener('pointerup', joyRelease);
+joyEl.addEventListener('pointercancel', joyRelease);
+
+/* SPRINT */
+const sprintBtnEl = document.getElementById('sprintBtn');
+let sprintBtnHeld = false;
+let sprintPointerId = null;
+sprintBtnEl.addEventListener('pointerdown', (e) => {
+  if (sprintPointerId !== null) return;
+  sprintPointerId = e.pointerId;
+  try { sprintBtnEl.setPointerCapture(e.pointerId); } catch (_) {}
+  sprintBtnHeld = true;
+  sprintBtnEl.classList.add('active');
+  e.preventDefault(); e.stopPropagation();
+});
+function sprintRelease(e) {
+  if (e.pointerId !== sprintPointerId) return;
+  sprintPointerId = null;
+  sprintBtnHeld = false;
+  sprintBtnEl.classList.remove('active');
+  e.preventDefault(); e.stopPropagation();
+}
+sprintBtnEl.addEventListener('pointerup', sprintRelease);
+sprintBtnEl.addEventListener('pointercancel', sprintRelease);
+
+/* JUMP */
+const jumpEl = document.getElementById('jumpBtn');
+let jumpPointerId = null;
+jumpEl.addEventListener('pointerdown', (e) => {
+  if (jumpPointerId !== null) return;
+  jumpPointerId = e.pointerId;
+  try { jumpEl.setPointerCapture(e.pointerId); } catch (_) {}
+  keys['Space'] = true;
+  jumpEl.classList.add('active');
+  e.preventDefault(); e.stopPropagation();
+});
+function jumpRelease(e) {
+  if (e.pointerId !== jumpPointerId) return;
+  jumpPointerId = null;
+  keys['Space'] = false;
+  jumpEl.classList.remove('active');
+  e.preventDefault(); e.stopPropagation();
+}
+jumpEl.addEventListener('pointerup', jumpRelease);
+jumpEl.addEventListener('pointercancel', jumpRelease);
+
+/* STONE SKIN */
+stoneBtnEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  requestStoneSkin();
+});
+
+/* SPEED BOOST */
+speedBtnEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  requestSpeedBoost();
+});
+
+/* ============================================================
+   ФИЗИКА
+   ============================================================ */
+function updatePlayer(dt) {
+  /* Ввод */
+  let ix = 0, iz = 0;
+  if (keys['KeyW'] || keys['ArrowUp'])    iz -= 1;
+  if (keys['KeyS'] || keys['ArrowDown'])  iz += 1;
+  if (keys['KeyA'] || keys['ArrowLeft'])  ix -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
+  ix += joyValue.x; iz += joyValue.y;
+
+  const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
+  const rx = -fz, rz = fx;
+
+  const inMag = Math.hypot(ix, iz);
+  let dx = 0, dz = 0;
+  if (inMag > 1e-4) {
+    const nx = ix / inMag, nz = iz / inMag;
+    const scale = Math.min(1, inMag);
+    dx = (fx * (-nz) + rx * nx) * scale;
+    dz = (fz * (-nz) + rz * nx) * scale;
+  }
+
+  const isMoving = inMag > 0.05;
+
+  /* Стамина */
+  const sprintInput = keys['ShiftLeft'] || keys['ShiftRight'] || sprintBtnHeld;
+  const canSprint = stamina > 0 && !stoneMode && isMoving;
+  const sprinting = sprintInput && canSprint;
+
+  if (sprinting) {
+    stamina -= STAMINA_DRAIN * dt;
+    if (stamina < 0) stamina = 0;
+  } else {
+    stamina += STAMINA_REGEN * dt;
+    if (stamina > STAMINA_MAX) stamina = STAMINA_MAX;
+  }
+
+  /* Скорость */
+  let targetSpeed = sprinting ? RUN_SPEED : WALK_SPEED;
+  if (stoneMode) targetSpeed *= STONE_SLOWDOWN;
+  if (speedMode) targetSpeed *= SPEED_MULTIPLIER;
+  // ВАЖНО: во время питья ходить можно — скорость НЕ обнуляем
+
+  const accel = player.onGround ? 28 : 7;
+  const k = 1 - Math.exp(-accel * dt);
+
+  player.vel.x += (dx * targetSpeed - player.vel.x) * k;
+  player.vel.z += (dz * targetSpeed - player.vel.z) * k;
+
+  /* Прыжок */
+  if (keys['Space'] && player.onGround && !stoneMode) {
+    player.vel.y = JUMP_SPEED;
+    player.onGround = false;
+  }
+
+  /* Гравитация */
+  player.vel.y -= GRAVITY * dt;
+  if (player.vel.y < -55) player.vel.y = -55;
+
+  player.pos.x += player.vel.x * dt;
+  player.pos.y += player.vel.y * dt;
+  player.pos.z += player.vel.z * dt;
+
+  /* Столкновение с платформой */
+  const insideXZ = Math.abs(player.pos.x) <= HALF && Math.abs(player.pos.z) <= HALF;
+  if (player.pos.y <= GROUND_Y && insideXZ && player.vel.y <= 0) {
+    player.pos.y = GROUND_Y;
+    player.vel.y = 0;
+    player.onGround = true;
+  } else {
+    player.onGround = false;
+  }
+
+  if (player.pos.y < RESPAWN_Y) {
+    player.pos.set(0, 3, 0);
+    player.vel.set(0, 0, 0);
+  }
+
+  /* Поворот — во время питья разрешён */
+  if (inMag > 0.05) {
+    const targetFacing = Math.atan2(dx, dz);
+    let diff = targetFacing - player.facing;
+    while (diff >  Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    player.facing += diff * Math.min(1, 14 * dt);
+  }
+
+  /* Фаза ходьбы — во время питья тоже работает */
+  const hSpeed = Math.hypot(player.vel.x, player.vel.z);
+  const moving = player.onGround && hSpeed > 0.35;
+  const phaseSpeed = stoneMode ? 1.4 : 3.6;
+  if (moving) {
+    walkPhase += hSpeed * dt * phaseSpeed;
+  } else if (player.onGround) {
+    const target = Math.round(walkPhase / Math.PI) * Math.PI;
+    walkPhase += (target - walkPhase) * Math.min(1, 10 * dt);
+  }
+
+  const targetAir = player.onGround ? 0 : 1;
+  airPose += (targetAir - airPose) * Math.min(1, 12 * dt);
+
+  /* --- Питьё --- */
+  if (drinkTimer > 0) {
+    drinkTimer -= dt;
+    if (drinkTimer <= 0) {
+      drinkTimer = 0;
+      if (!drinkEffectDone) {
+        drinkEffectDone = true;
+        if (drinkType === 'stone') activateStoneSkinNow();
+        else if (drinkType === 'speed') activateSpeedBoostNow();
+      }
+      drinkType = null;
+    }
+  }
+
+  /* --- Stone Skin --- */
+  if (stoneActiveTime > 0) {
+    stoneActiveTime -= dt;
+    if (stoneActiveTime <= 0) {
+      stoneActiveTime = 0;
+      stoneCooldownTime = STONE_COOLDOWN;
+      stoneMode = false;
+      setStoneSkin(false);
+      stoneIndicatorEl.classList.remove('on');
+      stoneBtnEl.classList.remove('active');
+    }
+  }
+  if (stoneCooldownTime > 0) {
+    stoneCooldownTime -= dt;
+    if (stoneCooldownTime < 0) stoneCooldownTime = 0;
+  }
+
+  /* --- Speed Boost --- */
+  if (speedActiveTime > 0) {
+    speedActiveTime -= dt;
+    if (speedActiveTime <= 0) {
+      speedActiveTime = 0;
+      speedCooldownTime = SPEED_COOLDOWN;
+      speedMode = false;
+      speedIndicatorEl.classList.remove('on');
+      speedBtnEl.classList.remove('active');
+    }
+  }
+  if (speedCooldownTime > 0) {
+    speedCooldownTime -= dt;
+    if (speedCooldownTime < 0) speedCooldownTime = 0;
+  }
+
+  /* UI таймеры */
+  if (stoneActiveTime > 0) stoneTimerEl.textContent = stoneActiveTime.toFixed(1);
+  if (stoneCooldownTime > 0) {
+    stoneBtnEl.classList.add('cool');
+    stoneCdEl.textContent = Math.ceil(stoneCooldownTime);
+  } else {
+    stoneBtnEl.classList.remove('cool');
+  }
+
+  if (speedActiveTime > 0) speedTimerEl.textContent = speedActiveTime.toFixed(1);
+  if (speedCooldownTime > 0) {
+    speedBtnEl.classList.add('cool');
+    speedCdEl.textContent = Math.ceil(speedCooldownTime);
+  } else {
+    speedBtnEl.classList.remove('cool');
+  }
+}
+
+/* ============================================================
+   АНИМАЦИЯ — ходьба/бег
+   ============================================================
+   При беге руки и ноги забрасываются заметно сильнее.
+   ============================================================ */
+function animateNormal(hSpeed, dt) {
+  const running = hSpeed > WALK_SPEED * 0.9 && !stoneMode;
+  const w = airPose;
+
+  // Базовая амплитуда — как в "старой" анимации
+  const baseAmp = Math.min(0.85, hSpeed * 0.09) * (1 - w);
+  const s = Math.sin(walkPhase);
+
+  // Ноги — при беге заброс БОЛЬШЕ
+  const legAmp = baseAmp * (running ? 1.45 : 1.0);
+  const gLegL =  s * legAmp;
+  const gLegR = -s * legAmp;
+  const aLegL = -0.55, aLegR = 0.35;
+  playerModel.legL.rotation.x = gLegL * (1 - w) + aLegL * w;
+  playerModel.legR.rotation.x = gLegR * (1 - w) + aLegR * w;
+
+  // Руки — при беге заброс СИЛЬНО больше
+  const armAmp = baseAmp * (running ? 1.55 : 0.9);
+  const gArmL = -s * armAmp;
+  const gArmR =  s * armAmp;
+  const aArmL = -1.15, aArmR = -1.15;
+  playerModel.armL.rotation.x = gArmL * (1 - w) + aArmL * w;
+  playerModel.armR.rotation.x = gArmR * (1 - w) + aArmR * w;
+
+  // Лёгкий вынос рук в стороны
+  const armOut = (running ? 0.14 : 0.03) * (1 - w);
+  playerModel.armL.rotation.z =  armOut;
+  playerModel.armR.rotation.z = -armOut;
+
+  // Вертикальное покачивание
+  const bobAmp = running ? 0.08 : 0.028;
+  const targetBob = Math.abs(Math.sin(walkPhase)) * bobAmp * Math.min(1, hSpeed * 0.4) * (1 - w);
+  currentBob += (targetBob - currentBob) * Math.min(1, 16 * dt);
+
+  // Боковое покачивание
+  const swayAmp = running ? 0.05 : 0.02;
+  const targetSway = Math.sin(walkPhase) * swayAmp * (baseAmp / 0.8);
+  currentSway += (targetSway - currentSway) * Math.min(1, 14 * dt);
+  playerModel.group.rotation.z = currentSway;
+
+  // Без наклона корпуса вперёд — так анимация выглядит лучше
+  playerModel.group.rotation.x = 0;
+
+  // Голова смотрит прямо
+  playerModel.headPivot.rotation.x = 0;
+}
+
+/* ============================================================
+   АНИМАЦИЯ — ПИТЬЁ (накладывается поверх ходьбы)
+   ============================================================
+   Ключевые фазы (в секундах от старта):
+     0.00-0.15  появление бутылки
+     0.15-0.45  рука тянется к бедру
+     0.45-0.70  вытаскиваем — пробка отлетает
+     0.70-1.05  подносим к лицу
+     1.05-1.35  начинаем пить
+     1.35-1.65  пьём (голова откинута)
+     1.65-1.95  опускаем руку
+     1.95-2.10  бутылка исчезает
+     2.10-2.20  пауза, активируется эффект
+   ============================================================ */
+const drinkKeys = [
+  { t: 0.00, armX:  0.00, armZ:  0.00, headX:  0.00, bottleRX:  0.00, bottleVis: false, corkY: 0.00 },
+  { t: 0.20, armX:  0.10, armZ:  0.05, headX:  0.00, bottleRX:  0.00, bottleVis: true,  corkY: 0.00 },
+  { t: 0.45, armX:  0.30, armZ:  0.10, headX:  0.00, bottleRX:  0.00, bottleVis: true,  corkY: 0.00 },
+  { t: 0.70, armX: -0.55, armZ:  0.20, headX: -0.03, bottleRX:  0.00, bottleVis: true,  corkY: 0.20 },
+  { t: 1.05, armX: -1.55, armZ:  0.35, headX: -0.14, bottleRX: -0.20, bottleVis: true,  corkY: 0.35 },
+  { t: 1.35, armX: -1.90, armZ:  0.42, headX: -0.30, bottleRX: -0.50, bottleVis: true,  corkY: 0.42 },
+  { t: 1.65, armX: -1.75, armZ:  0.42, headX: -0.18, bottleRX: -0.32, bottleVis: true,  corkY: 0.40 },
+  { t: 1.95, armX: -0.40, armZ:  0.20, headX: -0.05, bottleRX:  0.00, bottleVis: true,  corkY: 0.30 },
+  { t: 2.10, armX:  0.00, armZ:  0.00, headX:  0.00, bottleRX:  0.00, bottleVis: false, corkY: 0.30 },
+  { t: 2.20, armX:  0.00, armZ:  0.00, headX:  0.00, bottleRX:  0.00, bottleVis: false, corkY: 0.30 },
+];
+
+function lerpDrinkKeys(time) {
+  let k0 = drinkKeys[0], k1 = drinkKeys[drinkKeys.length - 1];
+  for (let i = 0; i < drinkKeys.length - 1; i++) {
+    if (time >= drinkKeys[i].t && time <= drinkKeys[i + 1].t) {
+      k0 = drinkKeys[i]; k1 = drinkKeys[i + 1];
+      break;
+    }
+  }
+  const span = k1.t - k0.t;
+  const u = span > 0 ? (time - k0.t) / span : 0;
+  const e = u * u * (3 - 2 * u);   // smoothstep
+  return {
+    armX: k0.armX + (k1.armX - k0.armX) * e,
+    armZ: k0.armZ + (k1.armZ - k0.armZ) * e,
+    headX: k0.headX + (k1.headX - k0.headX) * e,
+    bottleRX: k0.bottleRX + (k1.bottleRX - k0.bottleRX) * e,
+    bottleVis: k0.bottleVis,
+    corkY: k0.corkY + (k1.corkY - k0.corkY) * e,
+  };
+}
+
+function applyDrinkOverlay() {
+  const elapsed = DRINK_DURATION - drinkTimer;
+  const pose = lerpDrinkKeys(elapsed);
+
+  // Накладываем поверх ходьбы: правая рука + голова
+  playerModel.armR.rotation.x = pose.armX;
+  playerModel.armR.rotation.z = pose.armZ;
+  playerModel.headPivot.rotation.x = pose.headX;
+
+  // Бутылка
+  bottle.visible = pose.bottleVis;
+  if (pose.bottleVis) {
+    bottle.rotation.x = pose.bottleRX;
+  }
+
+  // Пробка отлетает
+  cork.position.y = CORK_BASE_Y + pose.corkY;
+  cork.position.x = pose.corkY * 0.5;
+  cork.material.opacity = Math.max(0, 1 - pose.corkY * 2.8);
+}
+
+function animateModel(hSpeed, dt) {
+  // Обычная анимация — всегда (чтобы можно было ходить во время питья)
+  animateNormal(hSpeed, dt);
+
+  // Если пьём — накладываем поверх ходьбы
+  if (drinkTimer > 0) {
+    applyDrinkOverlay();
+  } else {
+    bottle.visible = false;
+  }
+}
+
+/* ============================================================
+   КАМЕРА
+   ============================================================ */
+const camLook = new THREE.Vector3();
+function updateCamera(renderPos) {
+  const cosP = Math.cos(camPitch);
+  const sinP = Math.sin(camPitch);
+  const camX = renderPos.x + Math.sin(camYaw) * cosP * camDist;
+  const camZ = renderPos.z + Math.cos(camYaw) * cosP * camDist;
+  const camY = renderPos.y + sinP * camDist + 0.6;
+  camera.position.set(camX, camY, camZ);
+  camLook.set(renderPos.x, renderPos.y + 1.1, renderPos.z);
+  camera.lookAt(camLook);
+}
+
+/* ============================================================
+   FPS
+   ============================================================ */
+const fpsEl = document.getElementById('fps');
+let fpsFrames = 0;
+let fpsAccum = 0;
+
+/* ============================================================
+   ГЛАВНЫЙ ЦИКЛ
+   ============================================================ */
+const FIXED_DT = 1 / 120;
+let accumulator = 0;
+let lastTime = performance.now();
+const renderPos = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const now = performance.now();
+  let frameTime = (now - lastTime) / 1000;
+  lastTime = now;
+  if (frameTime > 0.1) frameTime = 0.1;
+
+  fpsFrames++;
+  fpsAccum += frameTime;
+  if (fpsAccum >= 0.4) {
+    fpsEl.textContent = 'FPS: ' + Math.round(fpsFrames / fpsAccum);
+    fpsFrames = 0; fpsAccum = 0;
+  }
+
+  accumulator += frameTime;
+  if (accumulator > 0.2) accumulator = 0.2;
+
+  while (accumulator >= FIXED_DT) {
+    prevPos.copy(player.pos);
+    prevFacing = player.facing;
+    updatePlayer(FIXED_DT);
+    accumulator -= FIXED_DT;
+  }
+
+  const alpha = accumulator / FIXED_DT;
+  renderPos.lerpVectors(prevPos, player.pos, alpha);
+  const facing = prevFacing + (player.facing - prevFacing) * alpha;
+
+  const hSpeed = Math.hypot(player.vel.x, player.vel.z);
+  animateModel(hSpeed, frameTime);
+
+  playerModel.group.position.copy(renderPos);
+  playerModel.group.position.y += currentBob;
+  playerModel.group.rotation.y = facing;
+
+  updateCamera(renderPos);
+
+  sun.position.set(renderPos.x + 35, 60, renderPos.z + 25);
+  sun.target.position.set(renderPos.x, 0, renderPos.z);
+  sun.target.updateMatrixWorld();
+
+  updateBars();
+
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+</body>
+</html>
